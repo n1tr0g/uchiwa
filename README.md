@@ -73,6 +73,8 @@ Make a config.json file for the application, and then launch the uchiwa containe
 ### uchiwa
 - `host` - String: The address on which Uchiwa will listen. The default value is *0.0.0.0*.
 - `port` - Integer: The port on which Uchiwa will listen. The default value is *3000*.
+- `auth` - String: Auth type. Valid values: None, Simple (will use `user` and `pass` for creds), Htpasswd.
+- `Authfile` - String: Path to the htpasswd file. Currently only supported password enryption is SHA1. Used only if auth type is *htpasswd*, ignored otherwise.
 - `user` - String: The username of the Uchiwa dashboard. Leave empty for none.
 - `pass` - String: The password of the Uchiwa dashboard. Leave empty for none.
 - `refresh` - Integer: Determines the interval to pull the Sensu APIs, in seconds. The default value is *5*.

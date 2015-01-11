@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/goji/httpauth"
 	"github.com/palourde/logger"
 )
 
@@ -119,26 +118,18 @@ func postStashHandler(w http.ResponseWriter, r *http.Request) {
 
 // WebServer starts the web server and serves GET & POST requests
 func WebServer(config *Config, publicPath *string) {
-	if config.Uchiwa.User != "" && config.Uchiwa.Pass != "" {
-		http.Handle("/delete_client", httpauth.SimpleBasicAuth(config.Uchiwa.User, config.Uchiwa.Pass)(http.HandlerFunc(deleteClientHandler)))
-		http.Handle("/delete_stash", httpauth.SimpleBasicAuth(config.Uchiwa.User, config.Uchiwa.Pass)(http.HandlerFunc(deleteStashHandler)))
-		http.Handle("/get_client", httpauth.SimpleBasicAuth(config.Uchiwa.User, config.Uchiwa.Pass)(http.HandlerFunc(getClientHandler)))
-		http.Handle("/get_config", httpauth.SimpleBasicAuth(config.Uchiwa.User, config.Uchiwa.Pass)(http.HandlerFunc(getConfigHandler)))
-		http.Handle("/get_sensu", httpauth.SimpleBasicAuth(config.Uchiwa.User, config.Uchiwa.Pass)(http.HandlerFunc(getSensuHandler)))
-		http.Handle("/post_event", httpauth.SimpleBasicAuth(config.Uchiwa.User, config.Uchiwa.Pass)(http.HandlerFunc(postEventHandler)))
-		http.Handle("/post_stash", httpauth.SimpleBasicAuth(config.Uchiwa.User, config.Uchiwa.Pass)(http.HandlerFunc(postStashHandler)))
-		http.Handle("/", httpauth.SimpleBasicAuth(config.Uchiwa.User, config.Uchiwa.Pass)(http.FileServer(http.Dir(*publicPath))))
-	} else {
-		http.Handle("/delete_client", http.HandlerFunc(deleteClientHandler))
-		http.Handle("/delete_stash", http.HandlerFunc(deleteStashHandler))
-		http.Handle("/get_client", http.HandlerFunc(getClientHandler))
-		http.Handle("/get_config", http.HandlerFunc(getConfigHandler))
-		http.Handle("/get_sensu", http.HandlerFunc(getSensuHandler))
-		http.Handle("/post_event", http.HandlerFunc(postEventHandler))
-		http.Handle("/post_stash", http.HandlerFunc(postStashHandler))
-		http.Handle("/", http.FileServer(http.Dir(*publicPath)))
-	}
+	auth := authType(config)
 
+	http.Handle("/delete_client", auth.httpauth()(http.HandlerFunc(deleteClientHandler)))
+	http.Handle("/delete_stash", auth.httpauth()(http.HandlerFunc(deleteStashHandler)))
+	http.Handle("/get_client", auth.httpauth()(http.HandlerFunc(getClientHandler)))
+	http.Handle("/get_config", auth.httpauth()(http.HandlerFunc(getConfigHandler)))
+	http.Handle("/get_sensu", auth.httpauth()(http.HandlerFunc(getSensuHandler)))
+	http.Handle("/post_event", auth.httpauth()(http.HandlerFunc(postEventHandler)))
+	http.Handle("/post_stash", auth.httpauth()(http.HandlerFunc(postStashHandler)))
+	http.Handle("/", auth.httpauth()(http.FileServer(http.Dir(*publicPath))))
+
+    // we never auth the health checks
 	http.Handle("/health", http.HandlerFunc(healthHandler))
 	http.Handle("/health/", http.HandlerFunc(healthHandler))
 

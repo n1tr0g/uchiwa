@@ -2,11 +2,13 @@ package uchiwa
 
 import (
 	"encoding/json"
+	"encoding/csv"
 	"fmt"
 	"math/rand"
 	"os"
 
 	"github.com/palourde/logger"
+	"strings"
 )
 
 // Config struct contains []SensuConfig and UchiwaConfig structs
@@ -31,12 +33,16 @@ type SensuConfig struct {
 
 // GlobalConfig struct contains conf about Uchiwa
 type GlobalConfig struct {
-	Host    string
-	Port    int
-	Refresh int
-	Pass    string
-	User    string
+	Host     string
+	Port     int
+	Refresh  int
+	Auth     string
+	Authfile string
+	Users    map[string]string
+	Pass     string
+	User     string
 }
+
 
 func (c *Config) initSensu() {
 	for i, api := range c.Sensu {
@@ -75,6 +81,53 @@ func (c *Config) initGlobal() {
 	} else if c.Uchiwa.Refresh >= 1000 { // backward compatibility with < 0.3.0 version
 		c.Uchiwa.Refresh = c.Uchiwa.Refresh / 1000
 	}
+	// backward compatibility 0.4.0
+	if c.Uchiwa.Auth == "" {
+		if c.Uchiwa.User == "" || c.Uchiwa.Pass == "" {
+			c.Uchiwa.Auth = "none"
+		} else {
+			c.Uchiwa.Auth = "simple"
+		}
+	}
+	switch strings.ToLower(c.Uchiwa.Auth) {
+		case "simple":
+			if c.Uchiwa.User == "" || c.Uchiwa.Pass == "" {
+				logger.Fatalf("For auth=Simple you need to define user and pass in the config.json")
+			}
+		case "htpasswd":
+			if _, err := os.Stat(c.Uchiwa.Authfile); os.IsNotExist(err) {
+				logger.Fatalf("Htpasswd %q file is missing", c.Uchiwa.Authfile)
+			}
+			users, err := loadHtpasswdFile(c.Uchiwa.Authfile)
+			if err != nil {
+				logger.Fatalf("Can't load users passwd file: %s.", err)
+			}
+			c.Uchiwa.Users = users
+		case "none":
+		default:
+			logger.Fatalf("Unknown auth type %q", c.Uchiwa.Auth)
+	}
+}
+
+func loadHtpasswdFile(path string) (map[string]string, error) {
+	r, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	csv_reader := csv.NewReader(r)
+	csv_reader.Comma = ':'
+	csv_reader.Comment = '#'
+	csv_reader.TrimLeadingSpace = true
+
+	records, err := csv_reader.ReadAll()
+	if err != nil {
+		return nil, err
+	}
+	h := make(map[string]string)
+	for _, record := range records {
+		h[record[0]] = record[1]
+	}
+	return h, nil
 }
 
 func buildPublicConfig(c *Config) {
